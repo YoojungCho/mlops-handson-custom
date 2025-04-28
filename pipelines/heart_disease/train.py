@@ -21,7 +21,7 @@ if __name__ == "__main__":
     logger.debug("Reading train data.")
     train_path = "/opt/ml/input/data/train"
 
-    file_list = os.listdir(path)
+    file_list = os.listdir(train_path)
     print ("train file_list: {}".format(file_list))
     
     x_train = pd.read_csv(os.path.join(train_path, 'x_train.csv'))
