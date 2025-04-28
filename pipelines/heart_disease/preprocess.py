@@ -43,7 +43,7 @@ if __name__ == "__main__":
     y = data['target']
 
     logger.info("Splitting %d rows of data into train and test datasets.", len(x))
-    x_train,x_test,y_train,y_test=train_test_split(x, y, test_size=0.2, random_state=0)
+    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=0)
 
     logger.info("Writing out datasets to %s.", base_dir)
     pd.DataFrame(x_train).to_csv(f"{base_dir}/train/x_train.csv", header=False, index=False)

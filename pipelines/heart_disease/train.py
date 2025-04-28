@@ -11,7 +11,7 @@ import pandas as pd
 import pickle
 import joblib
 
-from sklearn.ensemble import RandomFrestClassifier
+from sklearn.ensemble import RandomForestClassifier
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
