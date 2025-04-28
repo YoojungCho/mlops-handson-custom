@@ -4,6 +4,7 @@ import logging
 import pathlib
 import pickle
 import tarfile
+import os
 
 import numpy as np
 import pandas as pd
