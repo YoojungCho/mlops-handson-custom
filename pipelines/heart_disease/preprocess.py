@@ -35,9 +35,7 @@ if __name__ == "__main__":
     s3.Bucket(bucket).download_file(key, fn)
 
     logger.debug("Reading downloaded data.")
-    df = pd.read_csv(
-        fn
-    )
+    data = pd.read_csv(fn)
     os.unlink(fn)
 
     # Preprocessing
