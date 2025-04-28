@@ -129,7 +129,7 @@ def get_pipeline(
     default_bucket=None,
     model_package_group_name="heart_disease_model_group",
     pipeline_name="heart_disease_model",
-    base_job_prefix="Abalone",
+    base_job_prefix="Heart-Disease",
     processing_instance_type="ml.m5.xlarge",
     training_instance_type="ml.m5.xlarge",
 ):
