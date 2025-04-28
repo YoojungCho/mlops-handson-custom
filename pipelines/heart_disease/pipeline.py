@@ -26,7 +26,7 @@ from sagemaker.processing import (
     ScriptProcessor,
 )
 from sagemaker.sklearn.processing import SKLearnProcessor
-from sagemaker.workflow.conditions import ConditionLessThanOrEqualTo
+from sagemaker.workflow.conditions import ConditionGreaterThanOrEqualTo
 from sagemaker.workflow.condition_step import (
     ConditionStep,
 )
@@ -127,8 +127,8 @@ def get_pipeline(
     sagemaker_project_name=None,
     role=None,
     default_bucket=None,
-    model_package_group_name="AbalonePackageGroup",
-    pipeline_name="AbalonePipeline",
+    model_package_group_name="heart_disease_model_group",
+    pipeline_name="heart_disease_model",
     base_job_prefix="Abalone",
     processing_instance_type="ml.m5.xlarge",
     training_instance_type="ml.m5.xlarge",
@@ -156,7 +156,7 @@ def get_pipeline(
     )
     input_data = ParameterString(
         name="InputDataUrl",
-        default_value=f"s3://sagemaker-servicecatalog-seedcode-{region}/dataset/abalone-dataset.csv",
+        default_value=f"s3://sagemaker-project-p-iamrerliu4ot/data/heart_statlog_cleveland_hungary_final.csv",
     )
 
     # processing step for feature engineering
@@ -164,53 +164,44 @@ def get_pipeline(
         framework_version="0.23-1",
         instance_type=processing_instance_type,
         instance_count=processing_instance_count,
-        base_job_name=f"{base_job_prefix}/sklearn-abalone-preprocess",
+        base_job_name=f"{base_job_prefix}/heart_disease_preprocess",
         sagemaker_session=pipeline_session,
         role=role,
     )
     step_args = sklearn_processor.run(
         outputs=[
-            ProcessingOutput(output_name="train", source="/opt/ml/processing/train"),
-            ProcessingOutput(output_name="validation", source="/opt/ml/processing/validation"),
-            ProcessingOutput(output_name="test", source="/opt/ml/processing/test"),
+            ProcessingOutput(output_name="train", source="/opt/ml/processing/train", destination="s3://sagemaker-project-p-iamrerliu4ot/output/data/train"),
+            ProcessingOutput(output_name="test", source="/opt/ml/processing/test", destination="s3://sagemaker-project-p-iamrerliu4ot/output/data/test"),
         ],
         code=os.path.join(BASE_DIR, "preprocess.py"),
         arguments=["--input-data", input_data],
     )
     step_process = ProcessingStep(
-        name="PreprocessAbaloneData",
+        name="Preprocess-Step",
         step_args=step_args,
     )
 
     # training step for generating model artifacts
-    model_path = f"s3://{sagemaker_session.default_bucket()}/{base_job_prefix}/AbaloneTrain"
+    model_path = f"s3://{sagemaker_session.default_bucket()}/{base_job_prefix}/heart_desease_train"
     image_uri = sagemaker.image_uris.retrieve(
-        framework="xgboost",
+        framework="sklearn",
         region=region,
         version="1.0-1",
         py_version="py3",
         instance_type=training_instance_type,
     )
-    xgb_train = Estimator(
+    train = Estimator(
         image_uri=image_uri,
         instance_type=training_instance_type,
         instance_count=1,
         output_path=model_path,
-        base_job_name=f"{base_job_prefix}/abalone-train",
+        base_job_name=f"{base_job_prefix}/heart_disease_train",
         sagemaker_session=pipeline_session,
         role=role,
+        entry_point=os.path.join(BASE_DIR, "train.py")
     )
-    xgb_train.set_hyperparameters(
-        objective="reg:linear",
-        num_round=50,
-        max_depth=5,
-        eta=0.2,
-        gamma=4,
-        min_child_weight=6,
-        subsample=0.7,
-        silent=0,
-    )
-    step_args = xgb_train.fit(
+    
+    step_args = train.fit(
         inputs={
             "train": TrainingInput(
                 s3_data=step_process.properties.ProcessingOutputConfig.Outputs[
@@ -218,16 +209,10 @@ def get_pipeline(
                 ].S3Output.S3Uri,
                 content_type="text/csv",
             ),
-            "validation": TrainingInput(
-                s3_data=step_process.properties.ProcessingOutputConfig.Outputs[
-                    "validation"
-                ].S3Output.S3Uri,
-                content_type="text/csv",
-            ),
         },
     )
     step_train = TrainingStep(
-        name="TrainAbaloneModel",
+        name="Train-Model-Step",
         step_args=step_args,
     )
 
@@ -237,7 +222,7 @@ def get_pipeline(
         command=["python3"],
         instance_type=processing_instance_type,
         instance_count=1,
-        base_job_name=f"{base_job_prefix}/script-abalone-eval",
+        base_job_name=f"{base_job_prefix}/heart_disease_evaluation",
         sagemaker_session=pipeline_session,
         role=role,
     )
@@ -260,12 +245,12 @@ def get_pipeline(
         code=os.path.join(BASE_DIR, "evaluate.py"),
     )
     evaluation_report = PropertyFile(
-        name="AbaloneEvaluationReport",
+        name="HeartDiseaseReport",
         output_name="evaluation",
         path="evaluation.json",
     )
     step_eval = ProcessingStep(
-        name="EvaluateAbaloneModel",
+        name="Evaluate-Model-Step",
         step_args=step_args,
         property_files=[evaluation_report],
     )
@@ -295,21 +280,21 @@ def get_pipeline(
         model_metrics=model_metrics,
     )
     step_register = ModelStep(
-        name="RegisterAbaloneModel",
+        name="Register-Model-Step",
         step_args=step_args,
     )
 
     # condition step for evaluating model quality and branching execution
-    cond_lte = ConditionLessThanOrEqualTo(
+    cond_lte = ConditionGreaterThanOrEqualTo(
         left=JsonGet(
             step_name=step_eval.name,
             property_file=evaluation_report,
-            json_path="regression_metrics.mse.value"
+            json_path="binary_classification_metrics.accuracy.value"
         ),
-        right=6.0,
+        right=0.8,
     )
     step_cond = ConditionStep(
-        name="CheckMSEAbaloneEvaluation",
+        name="Check-Accuracy-Step",
         conditions=[cond_lte],
         if_steps=[step_register],
         else_steps=[],

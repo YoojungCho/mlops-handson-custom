@@ -7,9 +7,8 @@ import tarfile
 
 import numpy as np
 import pandas as pd
-import xgboost
 
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import accuracy_score,classification_report
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -23,29 +22,25 @@ if __name__ == "__main__":
     with tarfile.open(model_path) as tar:
         tar.extractall(path=".")
 
-    logger.debug("Loading xgboost model.")
-    model = pickle.load(open("xgboost-model", "rb"))
+    logger.debug("Loading model.")
+    model = joblib.load('./model.h')
 
     logger.debug("Reading test data.")
-    test_path = "/opt/ml/processing/test/test.csv"
-    df = pd.read_csv(test_path, header=None)
+    test_path = "/opt/ml/processing/test"
 
-    logger.debug("Reading test data.")
-    y_test = df.iloc[:, 0].to_numpy()
-    df.drop(df.columns[0], axis=1, inplace=True)
-    X_test = xgboost.DMatrix(df.values)
+    x_test = pd.read_csv(os.path.join(test_path, 'x_test.csv'))
+    y_test = pd.read_csv(os.path.join(test_path, 'y_test.csv'))
 
     logger.info("Performing predictions against test data.")
-    predictions = model.predict(X_test)
+    y_pred = model.predict(x_test)
 
-    logger.debug("Calculating mean squared error.")
-    mse = mean_squared_error(y_test, predictions)
-    std = np.std(y_test - predictions)
+    logger.debug("Calculating accuracy.")
+    accuracy = accuracy_score(y_test, y_pred)
     report_dict = {
-        "regression_metrics": {
-            "mse": {
-                "value": mse,
-                "standard_deviation": std
+        "binary_classification_metrics": {
+            "accuracy": {
+                "value": accuracy,
+                "standard_deviation": "NaN"
             },
         },
     }
