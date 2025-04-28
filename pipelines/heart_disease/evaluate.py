@@ -38,14 +38,14 @@ if __name__ == "__main__":
     y_pred = model.predict(x_test)
 
     logger.debug("Calculating accuracy.")
-    accuracy = accuracy_score(y_test, y_pred)
+    accuracy = round(accuracy_score(y_test, y_pred), 2)
     report_dict = {
         "binary_classification_metrics": {
             "accuracy": {
                 "value": accuracy,
                 "standard_deviation": "NaN"
-            },
-        },
+            }
+        }
     }
 
     output_dir = "/opt/ml/processing/evaluation"
